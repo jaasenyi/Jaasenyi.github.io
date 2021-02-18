@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <link rel="shortcut icon" href="http://some.url/to/favicon.ico">
+    <title>Xss(跨站脚本攻击)漏洞解析-Twowords</title>
+    
+        
+            <link href="https://cdn.bootcss.com/twitter-bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+            <link href="https://cdn.bootcss.com/academicons/1.8.6/css/academicons.min.css" rel="stylesheet">
+            <link href="https://cdn.bootcss.com/font-awesome/5.9.0/css/all.min.css" rel="stylesheet">
+            <link href="https://cdn.bootcss.com/animate.css/3.7.2/animate.min.css" rel="stylesheet">
+        
+    
+    
+<link rel="stylesheet" href="/css/adagio.css">
+
+<meta name="generator" content="Hexo 5.2.0"></head>
+<body>
+    <div class="container-fluid">
+    <nav class="nav">
+        <div class="collapse navbar-collapse" id="navbar-sm">
+            
+            
+            <div class="navbar-nav">
+                <a target="_blank" rel="noopener" href="https://www.twowords.top/tags/web/" class="nav-item nav-link">web渗透</a>
+            </div>
+            
+            <div class="navbar-nav">
+                <a href="" class="nav-item nav-link">CTF</a>
+            </div>
+            
+        </div>
+    </nav>
+</div>
+
+<div class="d-flex d-md-none" style="width: 100%; background-color: #e9ecef">
+    
+    <div class="nav">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-sm"
+            aria-expanded="false" aria-label="Toggle Navigation">
+            <i class="fas fa-bars fa-lg"></i>
+        </button>
+    </div>
+    
+    <nav class="navbar ml-auto">
+        <a class="navbar-brand" href="/">
+            
+            <img class="logo" src="https://via.placeholder.com/100x50.png?text=logo" />
+            
+        </a>
+    </nav>
+</div>
+
+
+<div class="container d-none d-md-block my-navbar">
+    <nav class="navbar navbar-expand-sm navbar-light bg-transparent">
+        <a class="navbar-brand " href="/">
+            
+            <img class="logo" src="https://via.placeholder.com/100x50.png?text=logo" />
+            
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                
+                <li class="nav-item pl-2 pr-2 ">
+                    <a class="nav-link" target="_blank" rel="noopener" href="https://www.twowords.top/tags/web/">web渗透</a>
+                </li>
+                
+                <li class="nav-item pl-2 pr-2 ">
+                    <a class="nav-link" href="/null">CTF</a>
+                </li>
+                
+            </ul>
+        </div>
+        
+    </nav>
+</div>
+
+
+
+
+    <div class="jumbotron jumbotron-fluid">
+    <div class="container">
+        
+        <h1 class="mt-4 article-title page-title">Xss(跨站脚本攻击)漏洞解析</h1>
+        
+        <p class="lead text-gray mt-3">By Anonymous; Published on 2021-02-18</p>
+        
+        <div class="tags">
+            <ul class="tag-list">
+                
+                <li class="tag-list-item">
+                    <a class="tag-list-link" href="/tags/web/">web</a>
+                </li>
+                
+            </ul>
+        </div>
+        
+    </div>
+</div>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-9 pt-2">
+                <div class="row">
+                    <div class="col-12">
+                        <main>
+                            <article class="article-text page-content"><h1 id="Xss跨站脚本攻击"><a href="#Xss跨站脚本攻击" class="headerlink" title="Xss跨站脚本攻击"></a>Xss跨站脚本攻击</h1><h2 id="什么是XSS"><a href="#什么是XSS" class="headerlink" title="什么是XSS"></a>什么是XSS</h2><p><strong>跨站脚本攻击</strong> (Cross Site Script)，缩写CSS，为了和层叠样式表（Cascading Style Sheet，CSS）区别，在安全领域叫做“XSS”，是一种Web应用程序的漏洞。</p>
+<p><strong>原理：</strong></p>
+<p>攻击者向有XSS 漏洞的网站中（web页面）插入恶意的JavaScript代码，当用户浏览该网站页面时，嵌入其中的代码就会自动执行，从而达到恶意攻击的用户目的。</p>
+<h2 id="XSS漏洞的危害"><a href="#XSS漏洞的危害" class="headerlink" title="XSS漏洞的危害"></a>XSS漏洞的危害</h2><ul>
+<li>盗取用户Cookie</li>
+<li>破坏页面结构</li>
+<li>重定向到其它网站</li>
+<li>传播蠕虫病毒。</li>
+</ul>
+<h2 id="XSS漏洞的分类"><a href="#XSS漏洞的分类" class="headerlink" title="XSS漏洞的分类"></a>XSS漏洞的分类</h2><h2 id="1、反射型-XSS-非持久型"><a href="#1、反射型-XSS-非持久型" class="headerlink" title="1、反射型 XSS (非持久型)"></a>1、反射型 XSS (非持久型)</h2><pre><code>黑客**诱使用户“点击”**带有XSS代码的恶意链接，用户点击该恶意链接后向服务器发送请求，服务器处理后把带有 XSS 代码的数据返回到用户浏览器，浏览器解析这段带有 XSS 代码的数据后，最终造成 XSS 漏洞。这个过程就像一次反射，故称为反射型 XSS 漏洞。 </code></pre>
+<p><img src="https://img-blog.csdnimg.cn/20210218142740431.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0phYXNlbnlp,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h2 id="2、存储型-XSS-持久型-XSS"><a href="#2、存储型-XSS-持久型-XSS" class="headerlink" title="2、存储型 XSS (持久型 XSS)"></a>2、存储型 XSS (持久型 XSS)</h2><pre><code>存储型XSS漏洞是因为服务器端将用户输入的恶意脚本没有通过任何验证就直接“存储”在数据库，并且每次通过调用数据库的方式，将该恶意脚本在没有被编码或转义的情况下将数据**呈现**在浏览器上</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/2021021814280751.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0phYXNlbnlp,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h2 id="3、基于-DOM-的-XSS"><a href="#3、基于-DOM-的-XSS" class="headerlink" title="3、基于 DOM 的 XSS"></a>3、基于 DOM 的 XSS</h2><pre><code>此分类并非按照“数据是否保存在服务器端”来划分，从效果来看，DOM 式XSS 其实是一种特殊类型的反射型 XSS。通过修改页面的DOM节点形成的XSS（网页本身的 JavaScript也是可以改变 HTML）。相比前两种XSS漏洞，这里**不需要**使用服务器进行解析。</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/20210218142820875.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0phYXNlbnlp,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h2 id="XSS-Payload"><a href="#XSS-Payload" class="headerlink" title="XSS Payload"></a>XSS Payload</h2><ul>
+<li>传统测试方式</li>
+</ul>
+<pre><code>  `&lt;script&gt;alert(&#39;1&#39;)&lt;/script&gt;`</code></pre>
+<p>  任意有输入功能的地方，使用上面代码尝试是否可以有如下的弹窗：</p>
+<p>  <img src="https://img-blog.csdnimg.cn/20210218142839620.png" alt="在这里插入图片描述"></p>
+<p>  **alert()**（警告消息框）可替换为如下：</p>
+<p>  <strong>confirm()</strong>(确认消息框)</p>
+<p>  如<code> &lt;script&gt;confirm(&quot;单机“确认”继续，单击“取消”停止&quot;)&lt;/script&gt;</code></p>
+<p><img src="https://img-blog.csdnimg.cn/20210218143209389.png" alt="在这里插入图片描述"></p>
+<p>  <strong>prompt()</strong>(提示消息框)</p>
+<p>  如<code> &lt;script&gt;prompt(&quot;您的名字？&quot;)&lt;/script&gt;</code></p>
+<p>  <img src="https://img-blog.csdnimg.cn/20210218142903286.png" alt="在这里插入图片描述"></p>
+<ul>
+<li><p>JavaScript事件：</p>
+<p>onload、onerror、onclick、onmouseover</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&lt;body onload&#x3D;alert(‘xss’)&gt; 					&#x2F;&#x2F;页面加载完毕后立即发生</span><br><span class="line">&lt;div onclick &#x3D;&quot;alert(&#39;xss’)”&gt;				&#x2F;&#x2F;元素被点击时发生</span><br><span class="line">&lt;img src&#x3D;# onerror&#x3D;alert(‘xss’)&gt; 			&#x2F;&#x2F;数据加载期间发生错误时执行</span><br><span class="line">&lt;div onmouseenter&#x3D;&quot;alert(&#39;xss&#39;)&quot;&gt; 			&#x2F;&#x2F;事件在鼠标指针移动到元素上时触发</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>Javascript URL</p>
+<p><code>&lt;a href=&quot;javascript:alert(‘test’)&quot;&gt;登录&lt;/a&gt;</code></p>
+</li>
+</ul>
+<ul>
+<li><p><strong>获取cookie:</strong></p>
+<p>只需将弹窗内容改为document.cookie即可。</p>
+<p>例：<code>&lt;script&gt;alert(document.cookie)&lt;/script&gt;</code></p>
+</li>
+</ul>
+<h2 id="Xss漏洞绕过姿势"><a href="#Xss漏洞绕过姿势" class="headerlink" title="Xss漏洞绕过姿势"></a>Xss漏洞绕过姿势</h2><ul>
+<li><p>大小写转换</p>
+</li>
+<li><p>双写绕过</p>
+</li>
+<li><p>利用JavaScript事件弹窗</p>
+</li>
+<li><p>1、使用事件</p>
+<p>2、结合程序执行顺序即危险字符删除顺序，进行双写</p>
+</li>
+<li><p>转义字符</p>
+<p>把Xss语句转换成16进制</p>
+</li>
+<li><p>闭合标签</p>
+</li>
+</ul>
+<h2 id="Xss漏洞防御"><a href="#Xss漏洞防御" class="headerlink" title="Xss漏洞防御"></a>Xss漏洞防御</h2><ul>
+<li><p>1、HTML实体。</p>
+<p>对用户输入的参数进行html编码。</p>
+<p>如php中的htmlspecialchars() 函数把预定义的字符转换为 HTML 实体。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&amp;   -&gt;   &amp;	</span><br><span class="line">&lt;   -&gt;   &lt;	</span><br><span class="line">&gt;	-&gt;   &gt;	</span><br><span class="line">&quot;	-&gt;   &quot;	</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>2、使用XSS Filter。</p>
+</li>
+<li><p>3、白名单和黑名单结合过滤。</p>
+</li>
+<li><p>4、设置会话Cookie的<strong>HTTP Only</strong>属性，客户端的JS脚本便不能获取Cookie信息了。</p>
+</li>
+<li><p>5、输入内容长度控制。</p>
+</li>
+</ul>
+</article>
+                        </main>
+                        
+                        
+                    </div>
+                </div>
+                <div class="row mt-5 mb-5">
+                    <div class="col-12">
+                        <div class="row">
+    <div class="col">
+        <nav aria-label="paginator" class="paginator">
+            <ul class="pagination d-none d-md-flex pagination-lg justify-content-center">
+                <li class="page-item  disabled ">
+                    <a class="page-link"
+                        href=""
+                        aria-label="Previous">
+                        <span aria-hidden="true">&laquo;
+                            No more</span>
+                        <span class="sr-only">Previous</span>
+                    </a>
+                </li>
+                <li class="page-item ">
+                    <a class="page-link"
+                        href="/2021/02/04/SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E%E8%AF%A6%E8%A7%A3/"
+                        aria-label="Next">
+                        <span
+                            aria-hidden="true">SQL注入漏洞详解
+                            &raquo;</span>
+                        <span class="sr-only">Next</span>
+                    </a>
+                </li>
+            </ul>
+            <ul class="pagination d-md-none justify-content-center">
+                <li class="page-item  disabled ">
+                    <a class="page-link"
+                        href=""
+                        aria-label="Previous">
+                        <span aria-hidden="true">&laquo;
+                            No more</span>
+                        <span class="sr-only">Previous</span>
+                    </a>
+                </li>
+                <li class="page-item ">
+                    <a class="page-link"
+                        href="/2021/02/04/SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E%E8%AF%A6%E8%A7%A3/"
+                        aria-label="Next">
+                        <span
+                            aria-hidden="true">SQL注入漏洞详解
+                            &raquo;</span>
+                        <span class="sr-only">Next</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+
+
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <div id="vcomment"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="container pt-4 page-sidebar">
+                    
+                    <div class="row">
+    <div class="col">
+        <h6>APPLAUSE FOR ME</h6>
+        <div id="applause-easy"></div>
+    </div>
+</div>
+                    
+                    <hr class="row">
+                    <div class="row toc-container">
+                        <div class="col-12">
+                            <h6>NAVIGATION</h6>
+                            <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Xss%E8%B7%A8%E7%AB%99%E8%84%9A%E6%9C%AC%E6%94%BB%E5%87%BB"><span class="toc-text">Xss跨站脚本攻击</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFXSS"><span class="toc-text">什么是XSS</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#XSS%E6%BC%8F%E6%B4%9E%E7%9A%84%E5%8D%B1%E5%AE%B3"><span class="toc-text">XSS漏洞的危害</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#XSS%E6%BC%8F%E6%B4%9E%E7%9A%84%E5%88%86%E7%B1%BB"><span class="toc-text">XSS漏洞的分类</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1%E3%80%81%E5%8F%8D%E5%B0%84%E5%9E%8B-XSS-%E9%9D%9E%E6%8C%81%E4%B9%85%E5%9E%8B"><span class="toc-text">1、反射型 XSS (非持久型)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2%E3%80%81%E5%AD%98%E5%82%A8%E5%9E%8B-XSS-%E6%8C%81%E4%B9%85%E5%9E%8B-XSS"><span class="toc-text">2、存储型 XSS (持久型 XSS)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3%E3%80%81%E5%9F%BA%E4%BA%8E-DOM-%E7%9A%84-XSS"><span class="toc-text">3、基于 DOM 的 XSS</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#XSS-Payload"><span class="toc-text">XSS Payload</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Xss%E6%BC%8F%E6%B4%9E%E7%BB%95%E8%BF%87%E5%A7%BF%E5%8A%BF"><span class="toc-text">Xss漏洞绕过姿势</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Xss%E6%BC%8F%E6%B4%9E%E9%98%B2%E5%BE%A1"><span class="toc-text">Xss漏洞防御</span></a></li></ol></li></ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer>
+    <div class="jumbotron jumbotron-fluid mb-0">
+        <div class="container-fluid">
+            <div class="col text-center">
+                <div class="bottom-social">
+                    <div class="row">
+    <div class="col text-center">
+        <ul class="list-inline">
+            
+            <li class="list-inline-item">
+                
+                <a target="_blank" rel="noopener" href="https://github.com/xxxxx">
+                    <span class="fa-stack fa-2x icon-link">
+                        <i class="fas fa-circle fa-stack-2x"></i>
+                        <i class="fab fa-github fa-stack-1x fa-inverse"></i>
+                    </span>
+                </a>
+                
+            </li>
+            
+            <li class="list-inline-item">
+                
+                <a target="_blank" rel="noopener" href="https://www.facebook.com/xxxxx">
+                    <span class="fa-stack fa-2x icon-link">
+                        <i class="fas fa-circle fa-stack-2x"></i>
+                        <i class="fab fa-facebook-f fa-stack-1x fa-inverse"></i>
+                    </span>
+                </a>
+                
+            </li>
+            
+            <li class="list-inline-item">
+                
+                <a target="_blank" rel="noopener" href="https://www.pinterest.com/xxxxx">
+                    <span class="fa-stack fa-2x icon-link">
+                        <i class="fas fa-circle fa-stack-2x"></i>
+                        <i class="fab fa-pinterest-p fa-stack-1x fa-inverse"></i>
+                    </span>
+                </a>
+                
+            </li>
+            
+            <li class="list-inline-item">
+                
+                <a target="_blank" rel="noopener" href="https://www.linkedin.com/in/xxxxx">
+                    <span class="fa-stack fa-2x icon-link">
+                        <i class="fas fa-circle fa-stack-2x"></i>
+                        <i class="fab fa-linkedin-in fa-stack-1x fa-inverse"></i>
+                    </span>
+                </a>
+                
+            </li>
+            
+        </ul>
+    </div>
+</div>
+
+                </div>
+                <p class="copyright text-muted">
+                    Copyright &copy; 
+                    <br>
+                    Thanks for coming!
+                    <br>
+                    <a target="_blank" rel="noopener" href="https://github.com/Hanlin-Dong/hexo-theme-adagio">Adagio</a> - A <a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a> theme made with love by
+                    <a target="_blank" rel="noopener" href="http://www.hanlindong.com">Hanlin Dong</a>.
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+    
+    
+        <script src="https://cdn.bootcss.com/jquery/3.4.1/jquery.slim.min.js"></script>
+        <script src="https://cdn.bootcss.com/twitter-bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.bootcss.com/font-awesome/5.9.0/js/all.min.js"></script>
+         
+            <script type="text/x-mathjax-config">
+                MathJax.Hub.Config({
+                    CommonHTML: { linebreaks: { automatic: true } },
+                    "HTML-CSS": { linebreaks: { automatic: true } },
+                    SVG: { linebreaks: { automatic: true } }
+                });
+            </script>
+            <script src='https://cdn.bootcss.com/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+        
+    
+
+
+
+<script src="/js/av.min.js"></script>
+
+
+<script src="/js/valine.min.js"></script>
+
+
+<script src="/js/applause-easy.js"></script>
+
+
+<script>
+$(document).ready(function() {
+    var a = new ApplauseEasy({
+        id: 'applause-easy',
+        appId: "xxxxxxxxxx",
+        appKey: "xxxxxxxxxx",
+        img_src: "http://img.hanlindong.com/blog/site/clap.png",
+        img_width: "50px",
+        img_height: "50px"
+    })
+})
+</script>
+
+
+<script>
+    var _hmt = _hmt || [];
+    (function () {
+        var hm = document.createElement("script");
+        hm.src = "https://hm.baidu.com/hm.js?123456789";
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-11111111-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+    gtag('js', new Date());
+    gtag('config', 'UA-11111111-1');
+</script>
+
+
+    
+    <script>
+    new Valine({
+        el: "#vcomment",
+        appId: "xxxxxxxxxx",
+        appKey: "xxxxxxxxxx",
+        notify: false,
+        varify: false,
+        avatar: 'identicon',
+        placeholder: "",
+        recordIP: true
+    })
+</script>
+    
+</body>
+</html>
